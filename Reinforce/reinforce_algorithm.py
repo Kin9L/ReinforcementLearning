@@ -110,9 +110,10 @@ def train():
         score = 0
         while not done:
             action = agent.choose_action(observation=observation)
-            observation_, reward, done, info = env.step(action)
+            next_obs, reward, done, info = env.step(action)
             score += reward
             agent.store_current_trajectory(observation, action, reward)
+            observation = next_obs
         agent.learn()
         agent.clear_current_trajectory()  # Reinforce is on policy algorithm
         if len(score_history) > 0 and score > max(score_history):  # Save models
