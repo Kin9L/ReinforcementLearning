@@ -5,6 +5,7 @@ tasks:
       pip3 install numpy
       pip3 install tensorflow
       pip3 install tensorflow_probability
+      pip3 install pygame
     command: echo "start script"
 
 # List the ports to expose. Learn more https://www.gitpod.io/docs/config-ports/
