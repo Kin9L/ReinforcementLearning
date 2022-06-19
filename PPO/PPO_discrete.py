@@ -15,12 +15,13 @@ VALUE = "value"
 
 
 class ActorNetwork(keras.Model):
-    def __init__(self, state_dim, action_dim, epsilon):
+    def __init__(self, state_dim, action_dim, epsilon, entropy_coef):
         super(ActorNetwork, self).__init__()
         self.fc1 = Dense(state_dim, activation="relu")
         self.fc2 = Dense(state_dim, activation="relu")
         self.fc3 = Dense(action_dim, activation="softmax")
         self.epsilon = epsilon
+        self.entropy_coef = entropy_coef
 
     def call(self, state):
         x1 = self.fc1(state)
@@ -31,14 +32,14 @@ class ActorNetwork(keras.Model):
     def compute_loss(self, actions, states, old_probs, advantages):
         states = tf.convert_to_tensor(states)
         new_probs = self.call(states)
-        dist = tfp.distributions.Categorical(new_probs)
+        dist = tfp.distributions.Categorical(probs=new_probs)
         log_new_probs = dist.log_prob(actions)
         ratio = tf.exp(log_new_probs - old_probs)
         clipped_ratio = tf.clip_by_value(ratio, 1.0 - self.epsilon, 1.0 + self.epsilon)
         adv_tensor = tf.convert_to_tensor([advantages])
         adv_tensor = tf.transpose(adv_tensor)
         surrogate = -tf.minimum(ratio * adv_tensor, clipped_ratio * adv_tensor)
-        return tf.reduce_mean(surrogate)
+        return tf.reduce_mean(surrogate) - self.entropy_coef * dist.entropy() 
 
     def train(self, actions, states, old_probs, advantages):
         with tf.GradientTape() as tape:
@@ -86,6 +87,7 @@ class Agent:
         gamma=0.99,
         gae_lambda=0.1,
         epsilon=0.1,
+        entropy_coef=0.2,
         chkpt_dir="ppo_models/",
     ) -> None:
         self.gamma = gamma
@@ -93,7 +95,7 @@ class Agent:
         self.chkpt_dir = chkpt_dir
 
         # actor
-        self.actor = ActorNetwork(state_dim, action_dim, epsilon)
+        self.actor = ActorNetwork(state_dim, action_dim, epsilon, entropy_coef)
         self.actor.compile(optimizer=Adam(learning_rate=actor_lr))
 
         # critic
